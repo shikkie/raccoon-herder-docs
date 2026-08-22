@@ -101,9 +101,7 @@ headers from anyone else are ignored. Never trust <code>0.0.0.0/0</code>.</p>
 </table>
 <p><code>lock-inspect</code> is on-prem / compliance only. The den trusts
 <code>RACCOON_INSPECT_CA</code>; the proxy logs method/path and <strong>redacted</strong> body
-summaries. Hostname-only logs (<code>lock-audit</code>) are the usual choice.
-Details:
-<a href="https://github.com/shikkie/raccoon-herder/blob/main/docs-no-gh-pages/LOCK-INSPECT.md"><code>LOCK-INSPECT.md</code></a>.</p>
+summaries. Hostname-only logs (<code>lock-audit</code>) are the usual choice.</p>
 <h2 id="cwd-jail">Cwd jail</h2>
 <p>In a container den, session create, workspace IO, and cwd typeahead stay
 under <code>RACCOON_CWD</code>. Agents can still exfiltrate <strong>workspace</strong> secrets;

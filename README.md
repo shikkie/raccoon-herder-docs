@@ -6,9 +6,8 @@
 
 Self-hosted **chat control plane** for coding agents — not a terminal in a browser.
 
-**Do not edit these files by hand.** Source markdown is `site/` in the private
-[raccoon-herder](https://github.com/shikkie/raccoon-herder) app repo. Rebuild
-and publish from there:
+**Do not edit these files by hand.** Source markdown is `site/` in the
+(private) app repo. Rebuild and publish from there:
 
 ```bash
 scripts/build-pages.sh
