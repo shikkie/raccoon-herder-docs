@@ -16,6 +16,6 @@ scripts/push-docs.sh
 ```
 
 `index.html` is the marketing landing page. The operator book starts at
-`guide.html`. Open Graph / Twitter cards use `images/og-share.png` (1200×630).
+`guide.html`. Open Graph / Twitter cards use `images/og-share.png` (1280×640).
 Crawlers need this repo (or GitHub Pages) to be public for unfurls to work.
 GitHub Pages is **not** enabled yet; when it is, use `main` / **root**.
