@@ -3,7 +3,25 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Home — Raccoon Herder</title>
+    <title>Herd coding agents from your phone — Raccoon Herder</title>
+    <meta name="description" content="Raccoon Herder is a self-hosted chat control plane for Grok, Claude, Copilot, and Hermes — not a terminal in a browser.">
+    <meta name="theme-color" content="#0f1115">
+    <link rel="canonical" href="https://shikkie.github.io/raccoon-herder-docs/">
+    <link rel="icon" href="images/mascot.jpg">
+    <link rel="apple-touch-icon" href="images/mascot.jpg">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Raccoon Herder">
+    <meta property="og:title" content="Herd coding agents from your phone">
+    <meta property="og:description" content="Raccoon Herder is a self-hosted chat control plane for Grok, Claude, Copilot, and Hermes — not a terminal in a browser.">
+    <meta property="og:url" content="https://shikkie.github.io/raccoon-herder-docs/">
+    <meta property="og:image" content="https://shikkie.github.io/raccoon-herder-docs/images/og-share.png">
+    <meta property="og:image:alt" content="Cute raccoon mascot and the words Raccoon Herder">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Herd coding agents from your phone">
+    <meta name="twitter:description" content="Raccoon Herder is a self-hosted chat control plane for Grok, Claude, Copilot, and Hermes — not a terminal in a browser.">
+    <meta name="twitter:image" content="https://shikkie.github.io/raccoon-herder-docs/images/og-share.png">
     <link rel="stylesheet" href="css/site.css">
   </head>
   <body>
@@ -11,6 +29,7 @@
       <a class="brand" href="index.html">Raccoon Herder</a>
       <nav>
         <a href="index.html" class="active">Home</a>
+        <a href="guide.html">Guide</a>
         <a href="architecture.html">Architecture</a>
         <a href="sessions.html">Sessions</a>
         <a href="chat.html">Chat</a>
@@ -20,80 +39,81 @@
         <a href="security.html">Security</a>
       </nav>
     </header>
-    <main class="prose">
-<h1 id="raccoon-herder">Raccoon Herder</h1>
-<p>Self-hosted <strong>chat control plane</strong> for coding agents. One Linux process herds
-Grok, Claude Code, Copilot CLI, Hermes, or a generic shell — from a phone,
-tablet, or desktop browser.</p>
-<p>It is <strong>not</strong> a terminal in the browser. Agents stay local children (ACP
-JSON-RPC over stdio, or a PTY fallback). The UI is a React PWA: sessions,
-markdown chat, tool and approval cards, workspace files, slash skills.</p>
-<h2 id="single-tenant-dens">Single-tenant dens</h2>
-<p>This process is <strong>single-tenant</strong>. One token, one workspace, one state
-directory. Many users means <strong>many dens</strong>, plus an external <strong>Herder</strong> that
-spawns them. There is no user table, org directory, or billing inside a den.</p>
-<table>
-<thead>
-<tr>
-<th>You want</th>
-<th>Go here</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>How the pieces fit</td>
-<td><a href="architecture.html">Architecture</a></td>
-</tr>
-<tr>
-<td>Create / stop / resume sessions</td>
-<td><a href="sessions.html">Sessions</a></td>
-</tr>
-<tr>
-<td>Chat, tools, follow-ups</td>
-<td><a href="chat.html">Chat</a></td>
-</tr>
-<tr>
-<td>Host LAN, container, reverse proxy</td>
-<td><a href="install.html">Install</a></td>
-</tr>
-<tr>
-<td>Using the PWA</td>
-<td><a href="pwa.html">PWA</a></td>
-</tr>
-<tr>
-<td>Spawn N dens</td>
-<td><a href="herder.html">Herder</a></td>
-</tr>
-<tr>
-<td>Token, ACL, lock modes</td>
-<td><a href="security.html">Security</a></td>
-</tr>
-</tbody>
-</table>
-<h2 id="quick-start">Quick start</h2>
-<p>On a Linux machine you already use:</p>
-<pre><code class="language-bash">git clone https://github.com/shikkie/raccoon-herder.git
-cd raccoon-herder
-scripts/bootstrap-venv.sh
-./dev.sh all    # http://127.0.0.1:42069/
-</code></pre>
-<p>Off-loopback clients need <code>RACCOON_TOKEN</code>. Do not port-forward the app ports
-to the public internet — put TLS (and a WAF) in front.</p>
-<h2 id="this-site">This site</h2>
-<p>These pages are the <strong>user book</strong>. They are compiled <strong>on a laptop or den</strong>
-with <code>scripts/build-pages.sh</code> into <code>docs/</code>, then published to
-<a href="https://github.com/shikkie/raccoon-herder-docs">shikkie/raccoon-herder-docs</a>
-(<code>scripts/push-docs.sh</code>). The app repo stays private and does <strong>not</strong> enable
-GitHub Pages. There is no Actions workflow that builds docs.</p>
-<p>Coding agents start at <a href="https://github.com/shikkie/raccoon-herder/blob/main/AGENTS.md"><code>AGENTS.md</code></a>
-and the current Phase 8 handoff under
-<a href="https://github.com/shikkie/raccoon-herder/tree/main/docs-no-gh-pages"><code>docs-no-gh-pages/</code></a>.
-Machine contracts (chat protocol, orchestrator ENV, ACP) live there too —
-this book excerpts them instead of forking a second spec.</p>
+    <main class="landing">
+<section class="hero">
+  <div class="hero-copy">
+    <p class="eyebrow">Self-hosted · chat, not a TTY</p>
+    <h1>Your coding agents.<br>In your pocket.<br>On your machine.</h1>
+    <p class="lede">Raccoon Herder is a chat control plane for Grok, Claude Code, Copilot CLI, and Hermes. You talk to them from a phone, tablet, or browser — while the agents stay local children on a Linux box you actually own.</p>
+    <p class="cta-row">
+      <a class="btn primary" href="guide.html">Read the guide</a>
+      <a class="btn" href="install.html">Install it</a>
+    </p>
+  </div>
+  <img class="hero-art" src="images/mascot.jpg" width="512" height="512" alt="Cartoon raccoon mascot in a charcoal hoodie, waving">
+</section>
+
+<section class="pitch">
+  <h2>Why it exists</h2>
+  <p>Most “remote agent” tools either shove a terminal in a browser or send your repo to someone else’s cloud. This is the other path: a real chat UI, structured tools and approvals, and a process that never has to leave your LAN — or a den you spawned for one job.</p>
+</section>
+
+<section class="shots" aria-label="Product scenes, placeholders until live screenshots">
+  <figure class="shot">
+    <img src="images/placeholder-chat.jpg" width="1024" height="1024" alt="Cartoon raccoon on a couch using a phone, standing in for a chat screenshot">
+    <figcaption>
+      <strong>Chat from the couch</strong>
+      <span class="soon">Live screenshot coming soon</span>
+      Markdown turns, thinking, tools — not green-on-black keystrokes.
+    </figcaption>
+  </figure>
+  <figure class="shot">
+    <img src="images/placeholder-approvals.jpg" width="1024" height="1024" alt="Cartoon raccoon at a desk with a glowing approval card, standing in for an approvals screenshot">
+    <figcaption>
+      <strong>Approvals as cards</strong>
+      <span class="soon">Live screenshot coming soon</span>
+      Allow, deny, or remember the choice. The agent waits for you.
+    </figcaption>
+  </figure>
+  <figure class="shot">
+    <img src="images/placeholder-dens.jpg" width="1024" height="1024" alt="Cartoon raccoon herding smaller raccoons into cozy dens, standing in for a dens screenshot">
+    <figcaption>
+      <strong>One user per den</strong>
+      <span class="soon">Live screenshot coming soon</span>
+      Many people means many isolated dens plus a Herder — not a user table in the app.
+    </figcaption>
+  </figure>
+</section>
+
+<section class="points">
+  <div>
+    <h2>What you get</h2>
+    <ul>
+      <li>Several live sessions at once, stop and resume without losing the thread.</li>
+      <li>Workspace files, git status, slash skills, attachments from camera or paste.</li>
+      <li>A PWA you can install per den — or just open a tab for a twenty-minute job.</li>
+      <li>You keep the tokens. No SaaS relay inside this process.</li>
+    </ul>
+  </div>
+  <div>
+    <h2>What it is not</h2>
+    <ul>
+      <li>Not a terminal emulator as the product UI.</li>
+      <li>Not multi-tenant. Dens don’t see each other.</li>
+      <li>Not Docker-in-Docker, and never <code>docker.sock</code> in a den.</li>
+      <li>Not finished-finished — we’re building it in the open, carefully.</li>
+    </ul>
+  </div>
+</section>
+
+<p class="cta-row bottom">
+  <a class="btn primary" href="guide.html">Start with the user guide</a>
+  <a class="btn" href="architecture.html">See how it fits together</a>
+</p>
     </main>
     <footer class="site-footer">
-      Static book built locally with <code>scripts/build-pages.sh</code>.
-      Published to <code>shikkie/raccoon-herder-docs</code>.
+      Self-hosted chat control plane. User book built with
+      <code>scripts/build-pages.sh</code>.
     </footer>
     <script src="vendor/mermaid.min.js"></script>
     <script>

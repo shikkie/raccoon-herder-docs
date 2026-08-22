@@ -153,3 +153,166 @@ body {
   font-family: "IBM Plex Mono", ui-monospace, monospace;
   font-size: 0.9em;
 }
+
+.landing {
+  max-width: 68rem;
+  margin: 0 auto;
+  padding: 1.75rem 1.25rem 3rem;
+}
+
+.hero {
+  display: grid;
+  grid-template-columns: 1.15fr 0.85fr;
+  gap: 1.5rem 2rem;
+  align-items: center;
+  margin-bottom: 2.5rem;
+}
+
+.eyebrow {
+  margin: 0 0 0.6rem;
+  color: var(--accent);
+  font-size: 0.85rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.hero h1 {
+  margin: 0 0 1rem;
+  font-size: clamp(1.8rem, 4vw, 2.7rem);
+  line-height: 1.15;
+}
+
+.lede {
+  color: var(--muted);
+  font-size: 1.12rem;
+  max-width: 38rem;
+}
+
+.hero-art {
+  width: 100%;
+  max-width: 26rem;
+  justify-self: end;
+  border-radius: 1.25rem;
+  border: 1px solid var(--border);
+  background: var(--bg-raise);
+}
+
+.cta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.7rem;
+  margin: 1.25rem 0 0;
+}
+
+.cta-row.bottom {
+  justify-content: center;
+  margin-top: 2.5rem;
+}
+
+.btn {
+  display: inline-block;
+  padding: 0.55rem 1rem;
+  border-radius: 0.65rem;
+  border: 1px solid var(--border);
+  color: var(--text);
+  text-decoration: none;
+  background: var(--bg-raise);
+}
+
+.btn.primary {
+  background: var(--accent);
+  color: #1a120c;
+  border-color: transparent;
+  font-weight: 650;
+}
+
+.pitch {
+  max-width: 42rem;
+  margin: 0 0 2.5rem;
+  color: var(--muted);
+}
+
+.pitch h2 {
+  color: var(--text);
+  margin: 0 0 0.6rem;
+}
+
+.shots {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+  margin: 0 0 2.5rem;
+}
+
+.shot {
+  margin: 0;
+  background: var(--bg-raise);
+  border: 1px solid var(--border);
+  border-radius: 0.9rem;
+  overflow: hidden;
+}
+
+.shot img {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1;
+  object-fit: cover;
+}
+
+.shot figcaption {
+  padding: 0.85rem 1rem 1rem;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+.shot figcaption strong {
+  display: block;
+  color: var(--text);
+  margin-bottom: 0.2rem;
+}
+
+.soon {
+  display: inline-block;
+  margin: 0 0 0.45rem;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  background: var(--code-bg);
+  color: var(--accent);
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.points {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem 2rem;
+}
+
+.points h2 {
+  margin-top: 0;
+}
+
+.points ul {
+  margin: 0;
+  padding-left: 1.15rem;
+  color: var(--muted);
+}
+
+.points li {
+  margin: 0.35rem 0;
+}
+
+@media (max-width: 800px) {
+  .hero,
+  .shots,
+  .points {
+    grid-template-columns: 1fr;
+  }
+
+  .hero-art {
+    justify-self: center;
+    max-width: 20rem;
+  }
+}
