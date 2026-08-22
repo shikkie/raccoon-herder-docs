@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Architecture — Raccoon Herder</title>
+    <link rel="stylesheet" href="css/site.css">
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="index.html">Raccoon Herder</a>
+      <nav>
+        <a href="index.html">Home</a>
+        <a href="architecture.html" class="active">Architecture</a>
+        <a href="sessions.html">Sessions</a>
+        <a href="chat.html">Chat</a>
+        <a href="install.html">Install</a>
+        <a href="pwa.html">PWA</a>
+        <a href="herder.html">Herder</a>
+        <a href="security.html">Security</a>
+      </nav>
+    </header>
+    <main class="prose">
+<h1 id="architecture">Architecture</h1>
+<p>Raccoon Herder is a <strong>chat control plane</strong>. The browser never owns a TTY.
+The daemon owns sessions; agents are child processes.</p>
+<h2 id="components">Components</h2>
+<pre class="mermaid">flowchart LR
+  phone[PWA / browser]
+  web[web proxy :42069]
+  daemon[daemon :42070]
+  agent[ACP CLI stdio]
+  herder[Herder]
+  den[Den container]
+
+  phone --&gt; web --&gt; daemon --&gt; agent
+  herder --&gt;|create / stop / open| den
+  den --&gt; daemon</pre>
+
+<table>
+<thead>
+<tr>
+<th>Piece</th>
+<th>Role</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>PWA</strong></td>
+<td>Chat UI. Same-origin <code>/api</code> and <code>/ws</code>.</td>
+</tr>
+<tr>
+<td><strong>Web proxy</strong></td>
+<td>Serves the built SPA and proxies to the daemon on loopback. Default <code>:42069</code> (host) or <code>:8080</code> (den).</td>
+</tr>
+<tr>
+<td><strong>Daemon</strong></td>
+<td>Sessions, transcripts, workspace IO, ACP (or PTY fallback). Default <code>:42070</code>.</td>
+</tr>
+<tr>
+<td><strong>Agent</strong></td>
+<td><code>grok</code>, <code>claude</code>, <code>copilot</code>, <code>hermes</code>, or <code>generic</code> (<code>sh</code>).</td>
+</tr>
+<tr>
+<td><strong>Herder</strong></td>
+<td>Separate binary (<code>herder/</code>). Spawns dens. <strong>Not</strong> inside <code>daemon/</code>.</td>
+</tr>
+<tr>
+<td><strong>Den</strong></td>
+<td>One isolated copy of the whole stack + a workspace.</td>
+</tr>
+</tbody>
+</table>
+<p>ACP-capable CLIs speak JSON-RPC on <strong>stdio</strong>. Raw PTY is a debug escape hatch,
+not the product UI.</p>
+<h2 id="host-vs-den-vs-herder">Host vs den vs Herder</h2>
+<pre class="mermaid">flowchart TB
+  subgraph oneHost [One Linux login]
+    pwaH[PWA]
+    webH[web :42069]
+    dH[daemon]
+    pwaH --&gt; webH --&gt; dH
+  end
+  subgraph manyDens [Many users]
+    herder[Herder]
+    denA[Den A]
+    denB[Den B]
+    herder --&gt;|token + ENV + image| denA
+    herder --&gt; denB
+  end
+  denA -.-&gt;|must not reach Herder control plane| herder</pre>
+
+<ul>
+<li><strong>Host install:</strong> systemd <code>--user</code> (or <code>./dev.sh</code>) for the person who owns
+  the machine. Agent CLIs on <code>PATH</code>. Optional pairing QR on LAN.</li>
+<li><strong>Den:</strong> container image. <code>RACCOON_TOKEN</code> is <strong>required</strong>. Workspace is
+  <code>/workspace</code>. No LAN discovery. Pairing is off unless <code>--allow-pair</code>.</li>
+<li><strong>Herder:</strong> mints the token, optionally a LiteLLM virtual key, waits for
+  <code>/api/ready</code>, prints an open URL once. Dens do not get <code>docker.sock</code>, a
+  kubeconfig, <code>privileged</code>, host net, or host PID.</li>
+</ul>
+<h2 id="isolation">Isolation</h2>
+<p>Each den (and a careful host install) has:</p>
+<ul>
+<li>its own <code>RACCOON_TOKEN</code></li>
+<li>its own <code>RACCOON_CWD</code> (jailed to the workspace in a container)</li>
+<li>its own <code>state_dir</code> (sessions, transcripts)</li>
+<li>its own LLM credentials (never logged)</li>
+</ul>
+<p>Dens must <strong>not</strong> reach the Herder control plane. They do not list other
+dens. Path-prefix multi-tenancy does not work with the current service
+worker — give each den its own hostname.</p>
+<h2 id="ports-and-probes">Ports and probes</h2>
+<table>
+<thead>
+<tr>
+<th>URL</th>
+<th>Auth</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>GET /api/health</code></td>
+<td>none</td>
+<td>Liveness</td>
+</tr>
+<tr>
+<td><code>GET /api/ready</code></td>
+<td>none</td>
+<td>cwd exists and requested agent bins resolve</td>
+</tr>
+<tr>
+<td><code>GET /api/status</code></td>
+<td>token</td>
+<td>Host snapshot</td>
+</tr>
+<tr>
+<td><code>/api/*</code>, <code>/ws</code></td>
+<td>token or session cookie</td>
+<td>Everything else</td>
+</tr>
+</tbody>
+</table>
+<p>The PWA talks to the <strong>web</strong> origin only. In production, terminate TLS on
+a reverse proxy and bind the app to loopback.</p>
+<p>Full ENV and <code>/ready</code> contract:
+<a href="https://github.com/shikkie/raccoon-herder/blob/main/docs-no-gh-pages/ORCHESTRATOR.md">orchestrator notes</a>.</p>
+    </main>
+    <footer class="site-footer">
+      Static book built locally with <code>scripts/build-pages.sh</code>.
+      Published to <code>shikkie/raccoon-herder-docs</code>.
+    </footer>
+    <script src="vendor/mermaid.min.js"></script>
+    <script>
+      mermaid.initialize({ startOnLoad: true, theme: "dark" });
+    </script>
+  </body>
+</html>

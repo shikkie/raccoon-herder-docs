@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Security — Raccoon Herder</title>
+    <link rel="stylesheet" href="css/site.css">
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="index.html">Raccoon Herder</a>
+      <nav>
+        <a href="index.html">Home</a>
+        <a href="architecture.html">Architecture</a>
+        <a href="sessions.html">Sessions</a>
+        <a href="chat.html">Chat</a>
+        <a href="install.html">Install</a>
+        <a href="pwa.html">PWA</a>
+        <a href="herder.html">Herder</a>
+        <a href="security.html" class="active">Security</a>
+      </nav>
+    </header>
+    <main class="prose">
+<h1 id="security">Security</h1>
+<p>A den is a coding agent with a workspace. Treat it like a powerful user,
+not a kiosk. This page is the current product — not a phase checklist.</p>
+<h2 id="token-and-cookies">Token and cookies</h2>
+<p><code>RACCOON_TOKEN</code> is the sole UI/API secret for that process.</p>
+<ul>
+<li>Loopback may omit it on a <strong>host</strong> install.</li>
+<li>A <strong>den</strong> fails closed if it is missing.</li>
+<li>Off-loopback: <code>Authorization: Bearer</code>, or <code>GET /?token=</code> once → HttpOnly
+  <code>RACCOON_SESSION</code> cookie. Scripts keep using Bearer.</li>
+<li>Bad-token bursts get <strong>429</strong>.</li>
+<li>Pairing (<code>/pair</code>) is for LAN from loopback. Off in dens unless
+  <code>--allow-pair</code>. Do not put <code>/pair</code> on the public internet.</li>
+</ul>
+<h2 id="inbound-acl">Inbound ACL</h2>
+<p>Loopback + discovered RFC1918 same-subnet + <code>acl.allow_cidrs</code>.
+<code>acl.trusted_proxies</code> is the only source of <code>X-Forwarded-For</code>. Spoofed
+headers from anyone else are ignored. Never trust <code>0.0.0.0/0</code>.</p>
+<p>Published Docker ports look like the bridge; compose sets
+<code>RACCOON_ALLOW_CIDRS=172.16.0.0/12</code> so host probes are not 403.</p>
+<h2 id="what-never-goes-in-a-den">What never goes in a den</h2>
+<ul>
+<li><code>docker.sock</code> / engine sockets / kubeconfig</li>
+<li><code>privileged</code>, host network, host PID</li>
+<li>The Herder control plane (dens must not reach it)</li>
+<li>A user table or biller directory (that stays in the orchestrator)</li>
+</ul>
+<p><code>--host-volume</code> and <code>--insecure-bind</code> are operator-only.</p>
+<h2 id="egress-open-vs-lock-vs-lock-audit-vs-lock-inspect">Egress: open vs lock vs lock-audit vs lock-inspect</h2>
+<pre class="mermaid">flowchart LR
+  open[open] --&gt; lock[lock]
+  lock --&gt; audit[lock-audit]
+  audit --&gt; inspect[lock-inspect]</pre>
+
+<table>
+<thead>
+<tr>
+<th>Mode</th>
+<th>What it does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>open</strong></td>
+<td>Normal container DNS/egress (still no engine socket).</td>
+</tr>
+<tr>
+<td><strong>lock</strong></td>
+<td>Fail-closed allowlist + per-den DNS. IPv6 metadata blocked.</td>
+</tr>
+<tr>
+<td><strong>lock-audit</strong></td>
+<td>Forced proxy; <strong>domain</strong> logs. Recommended default when you want to see where the den talks.</td>
+</tr>
+<tr>
+<td><strong>lock-inspect</strong></td>
+<td>Same as audit <strong>plus</strong> TLS termination with a Herder CA. DLP hooks. <strong>Not a SaaS default.</strong> Breaks certificate pinning and some mTLS.</td>
+</tr>
+</tbody>
+</table>
+<p><code>lock-inspect</code> is on-prem / compliance only. The den trusts
+<code>RACCOON_INSPECT_CA</code>; the proxy logs method/path and <strong>redacted</strong> body
+summaries. Hostname-only logs (<code>lock-audit</code>) are the usual choice.
+Details:
+<a href="https://github.com/shikkie/raccoon-herder/blob/main/docs-no-gh-pages/LOCK-INSPECT.md"><code>LOCK-INSPECT.md</code></a>.</p>
+<h2 id="cwd-jail">Cwd jail</h2>
+<p>In a container den, session create, workspace IO, and cwd typeahead stay
+under <code>RACCOON_CWD</code>. Agents can still exfiltrate <strong>workspace</strong> secrets;
+the uid split only protects the herder product tree.</p>
+<h2 id="production-edge">Production edge</h2>
+<p>TLS + WAF on a reverse proxy; app on loopback. See <a href="install.html">Install</a>.
+Do not port-forward <code>:42069</code> / <code>:42070</code>.</p>
+    </main>
+    <footer class="site-footer">
+      Static book built locally with <code>scripts/build-pages.sh</code>.
+      Published to <code>shikkie/raccoon-herder-docs</code>.
+    </footer>
+    <script src="vendor/mermaid.min.js"></script>
+    <script>
+      mermaid.initialize({ startOnLoad: true, theme: "dark" });
+    </script>
+  </body>
+</html>

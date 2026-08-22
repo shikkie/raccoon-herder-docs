@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Sessions — Raccoon Herder</title>
+    <link rel="stylesheet" href="css/site.css">
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="index.html">Raccoon Herder</a>
+      <nav>
+        <a href="index.html">Home</a>
+        <a href="architecture.html">Architecture</a>
+        <a href="sessions.html" class="active">Sessions</a>
+        <a href="chat.html">Chat</a>
+        <a href="install.html">Install</a>
+        <a href="pwa.html">PWA</a>
+        <a href="herder.html">Herder</a>
+        <a href="security.html">Security</a>
+      </nav>
+    </header>
+    <main class="prose">
+<h1 id="session-lifecycle">Session lifecycle</h1>
+<p>A session is one agent process, one cwd, and a transcript. Several can run
+at once. <strong>Stop</strong> keeps metadata; <strong>Resume</strong> respawns the same id. <strong>Delete</strong>
+removes the record.</p>
+<pre class="mermaid">stateDiagram-v2
+  [*] --&gt; starting
+  starting --&gt; running
+  starting --&gt; auth_required
+  auth_required --&gt; running
+  running --&gt; stopped: stop / /rh-stop
+  stopped --&gt; running: resume
+  running --&gt; [*]: delete
+  stopped --&gt; [*]: delete</pre>
+
+<p><code>auth_required</code> is for vendor login (ACP <code>authenticate</code>). The PWA shows a
+sign-in banner. Stop may send ACP <code>session/close</code>; delete/prune may send
+<code>session/delete</code>.</p>
+<h2 id="join-vs-resume-vs-cancel-vs-rh-stop">Join vs Resume vs cancel vs <code>/rh-stop</code></h2>
+<table>
+<thead>
+<tr>
+<th>Action</th>
+<th>What it does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Join</strong></td>
+<td>Second client attaches to a <strong>running</strong> session (session list or pair link). Same process.</td>
+</tr>
+<tr>
+<td><strong>Resume</strong></td>
+<td>Respawns a <strong>stopped</strong> raccoon session with the same id, agent, and cwd. ACP agents that support <code>session/load</code> pick up the vendor thread; a stale id falls back to <code>session/new</code>.</td>
+</tr>
+<tr>
+<td><strong>Cancel turn</strong></td>
+<td>ACP <code>session/cancel</code>. Session stays <strong>running</strong>. Optional drop of the follow-up queue. Not a stop.</td>
+</tr>
+<tr>
+<td><strong><code>/rh-stop</code></strong></td>
+<td>Stops the active session (same as the Stop control). Keeps metadata.</td>
+</tr>
+<tr>
+<td><strong><code>/rh-delete</code></strong></td>
+<td>Opens the existing delete confirm.</td>
+</tr>
+</tbody>
+</table>
+<p><strong>New session</strong> / <code>/rh-new</code> / <code>/rh-clear</code> spawn a fresh raccoon session with
+the same agent and cwd. <strong>Resume agent session…</strong> lists native ACP threads
+on this host (<code>GET /native-sessions</code>).</p>
+<h2 id="approvals">Approvals</h2>
+<p>When the agent needs permission, the daemon emits an <code>approval</code> event. The
+PWA shows a sticky <strong>Allow / Deny</strong> bar (plus always-allow / always-deny /
+allow-all for this session). The turn does not continue until you answer.</p>
+<pre class="mermaid">sequenceDiagram
+  participant U as You
+  participant P as PWA
+  participant D as Daemon
+  participant A as Agent
+  U-&gt;&gt;P: user message
+  P-&gt;&gt;D: user_message
+  D-&gt;&gt;A: session/prompt
+  A--&gt;&gt;D: tool / permission
+  D--&gt;&gt;P: approval card
+  U-&gt;&gt;P: allow or deny
+  P-&gt;&gt;D: approval_response
+  D-&gt;&gt;A: permission result
+  A--&gt;&gt;D: turn continues
+  D--&gt;&gt;P: assistant / turn done</pre>
+
+<p>Pushover (daemon-side, not Web Push) can wake a phone when an approval or
+turn-complete happens and the PWA is frozen.</p>
+<h2 id="follow-ups-while-a-turn-is-live">Follow-ups while a turn is live</h2>
+<p><code>delivery</code> on a user message is <code>queue</code>, <code>steer</code>, or <code>now</code>:</p>
+<table>
+<thead>
+<tr>
+<th>Mode</th>
+<th>While a prompt is in flight</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>queue</strong></td>
+<td>FIFO until the ACP result. Does not steer. Default on ACP.</td>
+</tr>
+<tr>
+<td><strong>steer</strong></td>
+<td>Inject into the live turn (<code>session/inject</code> or Grok interject). If the method is missing, the daemon <strong>queues</strong> and says so.</td>
+</tr>
+<tr>
+<td><strong>now</strong></td>
+<td>Cancel the live turn, then send this text as the next prompt. Remaining queued items stay queued.</td>
+</tr>
+</tbody>
+</table>
+<p>PTY / heuristic sessions send immediately; <code>steer</code> is rejected there. <strong>Stop</strong>
+drops the queue. Cancel can drop one queued bubble by id.</p>
+<h2 id="den-git-before-teardown">Den git before teardown</h2>
+<p>The Herder will not <code>stop</code> / <code>rm</code> a den that still has uncommitted or
+unpushed work unless you pass <code>--force</code>.</p>
+<pre class="mermaid">flowchart TD
+  act[herder den stop or rm]
+  probe[GET /api/workspace/git]
+  act --&gt; probe
+  probe --&gt;|clean and pushed| ok[teardown]
+  probe --&gt;|dirty or unpushed| no[refuse, exit 1]
+  probe --&gt;|den down / timeout| force[refuse unless --force]</pre>
+
+<p>The same payload feeds the PWA <strong>den-dirty</strong> chip and <code>/rh-git</code>.</p>
+    </main>
+    <footer class="site-footer">
+      Static book built locally with <code>scripts/build-pages.sh</code>.
+      Published to <code>shikkie/raccoon-herder-docs</code>.
+    </footer>
+    <script src="vendor/mermaid.min.js"></script>
+    <script>
+      mermaid.initialize({ startOnLoad: true, theme: "dark" });
+    </script>
+  </body>
+</html>

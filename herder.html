@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Herder — Raccoon Herder</title>
+    <link rel="stylesheet" href="css/site.css">
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="index.html">Raccoon Herder</a>
+      <nav>
+        <a href="index.html">Home</a>
+        <a href="architecture.html">Architecture</a>
+        <a href="sessions.html">Sessions</a>
+        <a href="chat.html">Chat</a>
+        <a href="install.html">Install</a>
+        <a href="pwa.html">PWA</a>
+        <a href="herder.html" class="active">Herder</a>
+        <a href="security.html">Security</a>
+      </nav>
+    </header>
+    <main class="prose">
+<h1 id="herder">Herder</h1>
+<p>The Herder is a <strong>separate</strong> process that <strong>spawns dens</strong>. A den is one
+raccoon-herder cell (image + workspace + agents). This is not the den
+daemon. Do not put compose/k8s clients in <code>daemon/</code>. Do not mount
+<code>docker.sock</code> into a den.</p>
+<pre><code class="language-text">herder den create   →  mint token (+ optional LiteLLM key), spawn den
+                    →  wait GET /api/health and /api/ready
+                    →  print open_url (?token=) once
+herder den open     →  same URL again from the store (no second LiteLLM key)
+herder den stop     →  git probe; refuse if dirty/unpushed; else stop; volumes kept
+herder den rm       →  same git check; remove workload; volumes kept unless --wipe
+herder den logs
+herder den list
+</code></pre>
+<p><code>--runtime host|kube|swarm</code> (or <code>HERDER_RUNTIME</code>).</p>
+<h2 id="create">Create</h2>
+<pre><code class="language-bash">scripts/bootstrap-venv.sh
+docker build -t raccoon-herder:local .
+.venv/bin/herder den create            # mints RACCOON_TOKEN; prints open_url once
+.venv/bin/herder den create --cpus 4 --memory 8g --pids-limit 1024
+.venv/bin/herder den create --user 1000:alice --herder-user 10000:herder
+.venv/bin/herder den create --packages ffmpeg,ripgrep
+.venv/bin/herder den create --mcp-file ./mcp.json
+.venv/bin/herder den create --git-url https://github.com/example/app.git
+.venv/bin/herder den create --demo --token &quot;$RACCOON_TOKEN&quot;
+.venv/bin/herder --runtime kube den create --domain dens.example --workspace-size 50g
+.venv/bin/herder den open &lt;id&gt;
+.venv/bin/herder den stop &lt;id&gt;         # --force if the den is already down
+.venv/bin/herder den rm &lt;id&gt;           # keep volumes
+.venv/bin/herder den rm &lt;id&gt; --wipe    # delete named volumes
+</code></pre>
+<p>Needs image <code>raccoon-herder:local</code> (or your tag). <code>scripts/check.sh</code> does
+<strong>not</strong> require Docker. <code>--engine docker|podman</code>. Kubernetes uses <code>kubectl</code>;
+Swarm needs <code>docker swarm</code> active.</p>
+<p>State lives in <code>HERDER_STATE_DIR</code> (default
+<code>~/.local/state/raccoon-herder/herder</code>), mode 0600. Optional LiteLLM:
+<code>HERDER_LITELLM_URL</code> + <code>HERDER_LITELLM_MASTER_KEY</code>. Skip minting when the
+URL is unset.</p>
+<h2 id="resources-users-metadata">Resources, users, metadata</h2>
+<table>
+<thead>
+<tr>
+<th>Knob</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--cpus</code> <code>--memory</code> <code>--pids-limit</code> <code>--workspace-size</code></td>
+<td>Per-den caps</td>
+</tr>
+<tr>
+<td><code>--user UID[:GID][:NAME]</code></td>
+<td>Den/agent user (default 10001 <code>raccoon</code>)</td>
+</tr>
+<tr>
+<td><code>--herder-user</code></td>
+<td>Daemon/web user (default 10000 <code>herder</code>)</td>
+</tr>
+<tr>
+<td><code>--packages</code></td>
+<td>Apt at init via <code>den-pkg</code>; that den is not read-only</td>
+</tr>
+<tr>
+<td><code>--mcp-file</code></td>
+<td>Stamps ACP <code>mcpServers</code></td>
+</tr>
+<tr>
+<td>metadata.json</td>
+<td>Cloud-init analog at <code>/run/herder/metadata.json</code></td>
+</tr>
+</tbody>
+</table>
+<p>The den user cannot read <code>/opt/raccoon-herder</code> on Herder-spawned dens.
+<code>--host-volume</code> / <code>--insecure-bind</code> are operator-only.</p>
+<h2 id="git-probe-before-rm">Git probe before rm</h2>
+<p><code>den stop</code> / <code>den rm</code> <strong>GET</strong> <code>{origin}/api/workspace/git</code>. The Herder never
+<code>docker exec git</code>.</p>
+<table>
+<thead>
+<tr>
+<th>Workspace</th>
+<th>Result</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Not git, or clean and fully pushed</td>
+<td>Teardown proceeds</td>
+</tr>
+<tr>
+<td>Uncommitted and/or unpushed (including no upstream)</td>
+<td><strong>Refuse</strong>, exit 1</td>
+</tr>
+<tr>
+<td>Den down, <code>/ready</code> failed, timeout, missing token</td>
+<td><strong>Refuse</strong> unless <code>--force</code></td>
+</tr>
+</tbody>
+</table>
+<p>Volumes: <code>stop</code> and <code>rm</code> <strong>keep</strong> named volumes; <code>rm --wipe</code> deletes them.
+Bind mounts are never wiped.</p>
+<h2 id="egress">Egress</h2>
+<p><code>--egress-mode open|lock|lock-audit|lock-inspect</code> plus <code>--dns</code>. Lock is
+fail-closed. Dens get isolated networks. See <a href="security.html">Security</a>.</p>
+<p>CLI details: <a href="https://github.com/shikkie/raccoon-herder/blob/main/herder/README.md"><code>herder/README.md</code></a>.</p>
+    </main>
+    <footer class="site-footer">
+      Static book built locally with <code>scripts/build-pages.sh</code>.
+      Published to <code>shikkie/raccoon-herder-docs</code>.
+    </footer>
+    <script src="vendor/mermaid.min.js"></script>
+    <script>
+      mermaid.initialize({ startOnLoad: true, theme: "dark" });
+    </script>
+  </body>
+</html>

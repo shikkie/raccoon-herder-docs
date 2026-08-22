@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Using the PWA — Raccoon Herder</title>
+    <link rel="stylesheet" href="css/site.css">
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="index.html">Raccoon Herder</a>
+      <nav>
+        <a href="index.html">Home</a>
+        <a href="architecture.html">Architecture</a>
+        <a href="sessions.html">Sessions</a>
+        <a href="chat.html">Chat</a>
+        <a href="install.html">Install</a>
+        <a href="pwa.html" class="active">PWA</a>
+        <a href="herder.html">Herder</a>
+        <a href="security.html">Security</a>
+      </nav>
+    </header>
+    <main class="prose">
+<h1 id="using-the-pwa">Using the PWA</h1>
+<p>The installed app is per origin. Fine for a sticky den; skip for a
+20-minute job. Open the den with a one-time <code>?token=</code> (Herder prints that
+URL). After login the token is a cookie, not a query string.</p>
+<p>Dev HMR: <code>cd web/app &amp;&amp; npm run dev</code> (proxies to <code>:42069</code>). Production
+static is what <code>web/server.py</code> serves.</p>
+<h2 id="sessions">Sessions</h2>
+<ul>
+<li>Sidebar lists sessions (title, agent, cwd, turn chip).</li>
+<li><strong>New session</strong> / card <strong>New here</strong> / <code>/rh-new</code> — same agent and cwd,
+  new raccoon id.</li>
+<li><strong>Resume</strong> a stopped session; <strong>Join</strong> a running one from another device
+  (<code>?session=&lt;id&gt;</code> still needs a token).</li>
+<li><strong>Resume agent session…</strong> — native ACP threads (<code>session/load</code>).</li>
+<li>Search all sessions from the sidebar; export a transcript as Markdown or JSON.</li>
+</ul>
+<p>Status starts as <code>starting</code>, then <code>running</code>, or <code>auth_required</code> until vendor
+login. Error stays on the card.</p>
+<h2 id="composer-and-rh-">Composer and <code>/rh-*</code></h2>
+<p>Type <code>/</code> for agent skills. Raccoon-only commands are namespaced so they do
+not collide:</p>
+<table>
+<thead>
+<tr>
+<th>Command</th>
+<th>Effect</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>/rh-new</code> / <code>/rh-clear</code></td>
+<td>New session, same agent + cwd</td>
+</tr>
+<tr>
+<td><code>/rh-shell</code> / <code>/rh-sh</code></td>
+<td>Local shell in the session cwd (off in dens unless <code>--allow-shell</code>)</td>
+</tr>
+<tr>
+<td><code>/rh-git</code></td>
+<td>Den git report (same as the dirty chip)</td>
+</tr>
+<tr>
+<td><code>/rh-models</code></td>
+<td>List ACP model ids; <code>/rh-models set &lt;id&gt;</code> applies one</td>
+</tr>
+<tr>
+<td><code>/rh-stop</code></td>
+<td>Stop the active session</td>
+</tr>
+<tr>
+<td><code>/rh-delete</code></td>
+<td>Delete confirm</td>
+</tr>
+</tbody>
+</table>
+<p>Follow-up delivery (queue / steer / send now) is on <a href="sessions.html">Sessions</a>.</p>
+<h2 id="approvals-and-tools">Approvals and tools</h2>
+<p>Tool cards show running work. When the agent asks, a sticky <strong>Allow / Deny</strong>
+bar appears. Always-allow / always-deny persist on that raccoon session;
+<strong>allow all</strong> is session-wide, not a silent host default.</p>
+<h2 id="workspace-and-git">Workspace and git</h2>
+<p>The workspace drawer browses and inline-edits files under the session cwd
+(in a den, under <code>RACCOON_CWD</code>). Attachments: paste, file, camera.</p>
+<p>The <strong>git drawer</strong> and header <strong>den-dirty chip</strong> poll
+<code>GET /api/workspace/git</code>. Default interval 30s
+(<code>RACCOON_WORKSPACE_GIT_POLL_S</code>; <code>0</code> off). Settings can override in the
+browser. The Herder uses the same probe before <code>den stop</code> / <code>den rm</code>.</p>
+<h2 id="den-buttons">Den buttons</h2>
+<p>Dens can show extra start/stop buttons (demo todo UI, and whatever you put
+in <code>den_buttons.json</code>). <code>herder den create --demo</code> is the canned example:
+PWA on the den web port, Vite todo on host <strong>9998</strong>.</p>
+<p><code>/shell</code>, pairing, and generic <code>sh</code> are <strong>off</strong> in dens unless the Herder
+passed <code>--allow-shell</code> / <code>--allow-pair</code> / <code>--allow-generic</code>.</p>
+<h2 id="notifications">Notifications</h2>
+<p>PWA service worker handles updates. Approvals and turn-complete on a frozen
+phone are better with <strong>Pushover</strong> (<code>PUSHOVER_KEY</code> / <code>PUSHOVER_TOKEN</code> on the
+daemon — never in YAML).</p>
+    </main>
+    <footer class="site-footer">
+      Static book built locally with <code>scripts/build-pages.sh</code>.
+      Published to <code>shikkie/raccoon-herder-docs</code>.
+    </footer>
+    <script src="vendor/mermaid.min.js"></script>
+    <script>
+      mermaid.initialize({ startOnLoad: true, theme: "dark" });
+    </script>
+  </body>
+</html>

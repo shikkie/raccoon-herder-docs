@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Chat and ACP — Raccoon Herder</title>
+    <link rel="stylesheet" href="css/site.css">
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="index.html">Raccoon Herder</a>
+      <nav>
+        <a href="index.html">Home</a>
+        <a href="architecture.html">Architecture</a>
+        <a href="sessions.html">Sessions</a>
+        <a href="chat.html" class="active">Chat</a>
+        <a href="install.html">Install</a>
+        <a href="pwa.html">PWA</a>
+        <a href="herder.html">Herder</a>
+        <a href="security.html">Security</a>
+      </nav>
+    </header>
+    <main class="prose">
+<h1 id="chat-and-acp">Chat and ACP</h1>
+<p>The product UI is <strong>markdown chat</strong>, not a terminal emulator. Structured
+events (thinking, edits, tools, approvals, turn done) come from ACP when
+the CLI supports it. A heuristic PTY parser is the fallback.</p>
+<h2 id="turn-flow">Turn flow</h2>
+<pre class="mermaid">sequenceDiagram
+  participant U as You
+  participant P as PWA
+  participant D as Daemon
+  participant A as ACP CLI
+  U-&gt;&gt;P: type a turn
+  P-&gt;&gt;D: user_message
+  D--&gt;&gt;P: chat_ack
+  D-&gt;&gt;A: session/prompt
+  A--&gt;&gt;D: thinking / tool / text
+  D--&gt;&gt;P: thinking, tool, assistant_chunk
+  A--&gt;&gt;D: session/prompt result
+  D--&gt;&gt;P: assistant_message / turn done</pre>
+
+<p>Follow-ups (<code>queue</code> / <code>steer</code> / <code>now</code>) are described on
+<a href="sessions.html">Sessions</a>. The daemon is the source of truth: a follow-up
+is queued only after <code>chat_ack</code> with <code>queued: true</code> (or a 2xx REST post).
+The queue drains even if no UI is connected.</p>
+<h2 id="what-you-see-in-the-pwa">What you see in the PWA</h2>
+<ul>
+<li><strong>Thinking</strong> — collapsed by default when the adapter emits it.</li>
+<li><strong>Edits / diffs</strong> — file changes the agent reported.</li>
+<li><strong>Tool cards</strong> — running and finished tools.</li>
+<li><strong>Approvals</strong> — sticky allow / deny.</li>
+<li><strong>Token meter</strong> — ACP usage plus a live estimate while text is flowing.</li>
+<li><strong>Skills</strong> — type <code>/</code> for agent slash commands from that CLI’s trees.</li>
+<li><strong><code>/rh-*</code></strong> — raccoon-only; <strong>not</strong> sent to the agent.</li>
+</ul>
+<p>Raccoon commands: <code>/rh-new</code>, <code>/rh-clear</code>, <code>/rh-shell</code> / <code>/rh-sh</code>, <code>/rh-git</code>,
+<code>/rh-models</code>, <code>/rh-stop</code>, <code>/rh-delete</code>. Unprefixed <code>/new</code> is an agent skill
+if the CLI advertised it.</p>
+<h2 id="attachments">Attachments</h2>
+<p>Paste, drop, or <strong>Attach</strong> files and photos (phones also get <strong>Camera</strong>).
+Images render in the thread. ACP agents get vision blocks plus a workspace
+path they can open.</p>
+<h2 id="protocol-vs-this-book">Protocol vs this book</h2>
+<p>The normative WebSocket types live in
+<a href="https://github.com/shikkie/raccoon-herder/blob/main/docs-no-gh-pages/CHAT-PROTOCOL-V0.md"><code>CHAT-PROTOCOL-V0.md</code></a>.
+ACP handshake notes:
+<a href="https://github.com/shikkie/raccoon-herder/blob/main/docs-no-gh-pages/ACP.md"><code>ACP.md</code></a>.
+This page is the operator/user view; do not treat it as a second spec.</p>
+    </main>
+    <footer class="site-footer">
+      Static book built locally with <code>scripts/build-pages.sh</code>.
+      Published to <code>shikkie/raccoon-herder-docs</code>.
+    </footer>
+    <script src="vendor/mermaid.min.js"></script>
+    <script>
+      mermaid.initialize({ startOnLoad: true, theme: "dark" });
+    </script>
+  </body>
+</html>

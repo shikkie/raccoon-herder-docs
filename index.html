@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Home — Raccoon Herder</title>
+    <link rel="stylesheet" href="css/site.css">
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="index.html">Raccoon Herder</a>
+      <nav>
+        <a href="index.html" class="active">Home</a>
+        <a href="architecture.html">Architecture</a>
+        <a href="sessions.html">Sessions</a>
+        <a href="chat.html">Chat</a>
+        <a href="install.html">Install</a>
+        <a href="pwa.html">PWA</a>
+        <a href="herder.html">Herder</a>
+        <a href="security.html">Security</a>
+      </nav>
+    </header>
+    <main class="prose">
+<h1 id="raccoon-herder">Raccoon Herder</h1>
+<p>Self-hosted <strong>chat control plane</strong> for coding agents. One Linux process herds
+Grok, Claude Code, Copilot CLI, Hermes, or a generic shell — from a phone,
+tablet, or desktop browser.</p>
+<p>It is <strong>not</strong> a terminal in the browser. Agents stay local children (ACP
+JSON-RPC over stdio, or a PTY fallback). The UI is a React PWA: sessions,
+markdown chat, tool and approval cards, workspace files, slash skills.</p>
+<h2 id="single-tenant-dens">Single-tenant dens</h2>
+<p>This process is <strong>single-tenant</strong>. One token, one workspace, one state
+directory. Many users means <strong>many dens</strong>, plus an external <strong>Herder</strong> that
+spawns them. There is no user table, org directory, or billing inside a den.</p>
+<table>
+<thead>
+<tr>
+<th>You want</th>
+<th>Go here</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>How the pieces fit</td>
+<td><a href="architecture.html">Architecture</a></td>
+</tr>
+<tr>
+<td>Create / stop / resume sessions</td>
+<td><a href="sessions.html">Sessions</a></td>
+</tr>
+<tr>
+<td>Chat, tools, follow-ups</td>
+<td><a href="chat.html">Chat</a></td>
+</tr>
+<tr>
+<td>Host LAN, container, reverse proxy</td>
+<td><a href="install.html">Install</a></td>
+</tr>
+<tr>
+<td>Using the PWA</td>
+<td><a href="pwa.html">PWA</a></td>
+</tr>
+<tr>
+<td>Spawn N dens</td>
+<td><a href="herder.html">Herder</a></td>
+</tr>
+<tr>
+<td>Token, ACL, lock modes</td>
+<td><a href="security.html">Security</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="quick-start">Quick start</h2>
+<p>On a Linux machine you already use:</p>
+<pre><code class="language-bash">git clone https://github.com/shikkie/raccoon-herder.git
+cd raccoon-herder
+scripts/bootstrap-venv.sh
+./dev.sh all    # http://127.0.0.1:42069/
+</code></pre>
+<p>Off-loopback clients need <code>RACCOON_TOKEN</code>. Do not port-forward the app ports
+to the public internet — put TLS (and a WAF) in front.</p>
+<h2 id="this-site">This site</h2>
+<p>These pages are the <strong>user book</strong>. They are compiled <strong>on a laptop or den</strong>
+with <code>scripts/build-pages.sh</code> into <code>docs/</code>, then published to
+<a href="https://github.com/shikkie/raccoon-herder-docs">shikkie/raccoon-herder-docs</a>
+(<code>scripts/push-docs.sh</code>). The app repo stays private and does <strong>not</strong> enable
+GitHub Pages. There is no Actions workflow that builds docs.</p>
+<p>Coding agents start at <a href="https://github.com/shikkie/raccoon-herder/blob/main/AGENTS.md"><code>AGENTS.md</code></a>
+and the current Phase 8 handoff under
+<a href="https://github.com/shikkie/raccoon-herder/tree/main/docs-no-gh-pages"><code>docs-no-gh-pages/</code></a>.
+Machine contracts (chat protocol, orchestrator ENV, ACP) live there too —
+this book excerpts them instead of forking a second spec.</p>
+    </main>
+    <footer class="site-footer">
+      Static book built locally with <code>scripts/build-pages.sh</code>.
+      Published to <code>shikkie/raccoon-herder-docs</code>.
+    </footer>
+    <script src="vendor/mermaid.min.js"></script>
+    <script>
+      mermaid.initialize({ startOnLoad: true, theme: "dark" });
+    </script>
+  </body>
+</html>
