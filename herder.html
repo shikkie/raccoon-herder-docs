@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Herder — Raccoon Herder</title>
-    <meta name="description" content="Self-hosted chat control plane for coding agents — not a terminal in a browser.">
+    <meta name="description" content="Self-hosted chat control plane for coding agents — not a terminal in a browser. More agents are coming.">
     <meta name="theme-color" content="#0f1115">
     <link rel="canonical" href="https://shikkie.github.io/raccoon-herder-docs/herder.html">
     <link rel="icon" href="images/mascot.jpg">
@@ -12,7 +12,7 @@
     <meta property="og:type" content="website">
     <meta property="og:site_name" content="Raccoon Herder">
     <meta property="og:title" content="Herder">
-    <meta property="og:description" content="Self-hosted chat control plane for coding agents — not a terminal in a browser.">
+    <meta property="og:description" content="Self-hosted chat control plane for coding agents — not a terminal in a browser. More agents are coming.">
     <meta property="og:url" content="https://shikkie.github.io/raccoon-herder-docs/herder.html">
     <meta property="og:image" content="https://shikkie.github.io/raccoon-herder-docs/images/og-share.png">
     <meta property="og:image:alt" content="Cute raccoon mascot and the words Raccoon Herder">
@@ -20,7 +20,7 @@
     <meta property="og:image:height" content="640">
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="Herder">
-    <meta name="twitter:description" content="Self-hosted chat control plane for coding agents — not a terminal in a browser.">
+    <meta name="twitter:description" content="Self-hosted chat control plane for coding agents — not a terminal in a browser. More agents are coming.">
     <meta name="twitter:image" content="https://shikkie.github.io/raccoon-herder-docs/images/og-share.png">
     <link rel="stylesheet" href="css/site.css">
   </head>
@@ -33,7 +33,6 @@
         <a href="architecture.html">Architecture</a>
         <a href="sessions.html">Sessions</a>
         <a href="chat.html">Chat</a>
-        <a href="install.html">Install</a>
         <a href="pwa.html">PWA</a>
         <a href="herder.html" class="active">Herder</a>
         <a href="security.html">Security</a>
@@ -54,26 +53,8 @@ herder den rm       →  same git check; remove workload; volumes kept unless --
 herder den logs
 herder den list
 </code></pre>
-<p><code>--runtime host|kube|swarm</code> (or <code>HERDER_RUNTIME</code>).</p>
-<h2 id="create">Create</h2>
-<pre><code class="language-bash">scripts/bootstrap-venv.sh
-docker build -t raccoon-herder:local .
-.venv/bin/herder den create            # mints RACCOON_TOKEN; prints open_url once
-.venv/bin/herder den create --cpus 4 --memory 8g --pids-limit 1024
-.venv/bin/herder den create --user 1000:alice --herder-user 10000:herder
-.venv/bin/herder den create --packages ffmpeg,ripgrep
-.venv/bin/herder den create --mcp-file ./mcp.json
-.venv/bin/herder den create --git-url https://github.com/example/app.git
-.venv/bin/herder den create --demo --token &quot;$RACCOON_TOKEN&quot;
-.venv/bin/herder --runtime kube den create --domain dens.example --workspace-size 50g
-.venv/bin/herder den open &lt;id&gt;
-.venv/bin/herder den stop &lt;id&gt;         # --force if the den is already down
-.venv/bin/herder den rm &lt;id&gt;           # keep volumes
-.venv/bin/herder den rm &lt;id&gt; --wipe    # delete named volumes
-</code></pre>
-<p>Needs image <code>raccoon-herder:local</code> (or your tag). <code>scripts/check.sh</code> does
-<strong>not</strong> require Docker. <code>--engine docker|podman</code>. Kubernetes uses <code>kubectl</code>;
-Swarm needs <code>docker swarm</code> active.</p>
+<p><code>--runtime host|kube|swarm</code>. Public install is not available yet; this page is
+the product shape, not a setup recipe.</p>
 <p>State lives in <code>HERDER_STATE_DIR</code> (default
 <code>~/.local/state/raccoon-herder/herder</code>), mode 0600. Optional LiteLLM:
 <code>HERDER_LITELLM_URL</code> + <code>HERDER_LITELLM_MASTER_KEY</code>. Skip minting when the
