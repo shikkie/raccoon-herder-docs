@@ -92,9 +92,18 @@ not collide:</p>
 <td><code>/rh-delete</code></td>
 <td>Delete confirm</td>
 </tr>
+<tr>
+<td><code>/rh-theme</code></td>
+<td>Theme preview (bubbles, markdown, controls, palette)</td>
+</tr>
 </tbody>
 </table>
-<p>Follow-up delivery (queue / steer / send now) is on <a href="sessions.html">Sessions</a>.</p>
+<p>Follow-up delivery (queue / steer / send now) is on <a href="sessions.html">Sessions</a>.
+Theme is in <strong>Settings → App → Appearance</strong>: Dark, Light, or System.
+It defaults to whatever the den's floorplan sets.
+Open <code>/rh-theme</code> for a preview page that renders every themed surface — chat
+bubbles with all markdown (tables, code fences, inline code, links, quotes),
+buttons, inputs and the palette swatches — with a dark/light toggle.</p>
 <h2 id="approvals-and-tools">Approvals and tools</h2>
 <p>Tool cards show running work. When the agent asks, a sticky <strong>Allow / Deny</strong>
 bar appears. Always-allow / always-deny persist on that raccoon session;
@@ -108,8 +117,11 @@ bar appears. Always-allow / always-deny persist on that raccoon session;
 browser. The Herder uses the same probe before <code>den stop</code> / <code>den rm</code>.</p>
 <h2 id="den-buttons">Den buttons</h2>
 <p>Dens can show extra start/stop buttons (demo todo UI, and whatever you put
-in <code>den_buttons.json</code>). <code>herder den create --demo</code> is the canned example:
-PWA on the den web port, Vite todo on host <strong>9998</strong>.</p>
+in <code>den_buttons.json</code>). This repo ships den vs Herder buttons: <strong>Den</strong>
+start/restart/stop call <code>./dev.sh … all</code> (daemon + web only). <strong>Herder</strong>
+buttons call <code>./dev.sh … herder</code> and never bounce the den. <code>herder den create
+--demo</code> is the canned todo example: PWA on the den web port, Vite todo on
+host <strong>9998</strong>.</p>
 <p><code>/shell</code>, pairing, and generic <code>sh</code> are <strong>off</strong> in dens unless the Herder
 passed <code>--allow-shell</code> / <code>--allow-pair</code> / <code>--allow-generic</code>.</p>
 <h2 id="notifications">Notifications</h2>

@@ -52,6 +52,8 @@ herder den stop     →  git probe; refuse if dirty/unpushed; else stop; volumes
 herder den rm       →  same git check; remove workload; volumes kept unless --wipe
 herder den logs
 herder den list
+herder onboard      →  first super-admin (local CLI, no public signup)
+herder demo-seed    →  demo orgs, quotas, and every dashboard role
 </code></pre>
 <p><code>--runtime host|kube|swarm</code>. Public install is not available yet; this page is
 the product shape, not a setup recipe.</p>
@@ -59,6 +61,123 @@ the product shape, not a setup recipe.</p>
 <code>~/.local/state/raccoon-herder/herder</code>), mode 0600. Optional LiteLLM:
 <code>HERDER_LITELLM_URL</code> + <code>HERDER_LITELLM_MASTER_KEY</code>. Skip minting when the
 URL is unset.</p>
+<h2 id="dashboard-roles">Dashboard roles</h2>
+<p>The den has no user table. The <strong>Herder dashboard</strong> does: cookie login, orgs,
+quotas, and three roles.</p>
+<table>
+<thead>
+<tr>
+<th>Role</th>
+<th>Sees</th>
+<th>Typical job</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>super_admin</code></td>
+<td>Every org</td>
+<td>Invite people, set org ceilings, spawn anywhere</td>
+</tr>
+<tr>
+<td><code>org_admin</code></td>
+<td>One org</td>
+<td>Invite members, force-terminate, take over dens</td>
+</tr>
+<tr>
+<td><code>user</code></td>
+<td>Own dens in that org</td>
+<td>Spawn / stop / open within quota</td>
+</tr>
+</tbody>
+</table>
+<p>Org <strong>ceilings</strong> cap the whole org (dens, CPU, memory, disk). A member can
+also have a tighter <strong>user quota</strong>. Launch flags (<code>allow_shell</code>, pair,
+generic) are per org; a den only gets them if both the org and the spawn
+form allow it.</p>
+<p>Force-skip of the git probe (stop / terminate / rebuild) is an admin action.
+On the phone UI it lives <strong>inside</strong> those modals, not on the dens list.</p>
+<h2 id="floorplans">Floorplans</h2>
+<p>A floorplan is a spawn recipe: agent, git, first prompt, CPUs / memory / disk,
+<code>/shell</code>, skip-bootstrap, and <strong>env vars</strong> (helpers plus free-form keys).
+Secret values stay in Mongo; GET never returns them. <strong>Edit</strong> a saved plan on
+the Floorplans page; leave a secret field blank to keep the stored token.</p>
+<p><strong>Save as floorplan</strong> on Spawn writes the same fields from the modal (env
+included). Empty secret boxes are omitted so they do not wipe tokens.</p>
+<h2 id="den-rebuild">Den rebuild</h2>
+<p>Each spawn stores a recipe (env, agent, LLM, flags). <strong>Rebuild</strong> on a den:
+same git dirty check as terminate (or Force + reason in the modal), stop the
+container <strong>keeping volumes</strong>, then spawn again with the <strong>same name, id, and
+env</strong> on the current flavor image. Use this after a base-image rebuild.</p>
+<p>Dens created before recipes existed cannot rebuild — terminate and spawn once
+from a floorplan.</p>
+<h2 id="den-images-super_admin">Den images (<code>super_admin</code>)</h2>
+<p>The <strong>Images</strong> nav lists flavored tags (<code>raccoon-herder:local-grok</code> / <code>-claude</code>
+/ <code>-copilot</code>), whether they are present, last built time, and size. Rebuild
+runs <code>scripts/build-den-images.sh</code> on the Herder host. Then Rebuild each den
+to pick up the new tag.</p>
+<h2 id="demo-roster">Demo roster</h2>
+<p>Local testing only — not production. Idempotent. Shared password
+<code>demo-passphrase-9</code> (or <code>--password</code> / <code>HERDER_DEMO_PASSWORD</code>).</p>
+<pre><code class="language-bash">scripts/demo-onboard.sh
+# same as:
+.venv/bin/herder demo-seed
+</code></pre>
+<p>Needs Mongo (<code>HERDER_MONGODB_URI</code>, default <code>mongodb://127.0.0.1:27017/herder</code>).
+Then <code>herder serve</code> and sign in at the dashboard.</p>
+<table>
+<thead>
+<tr>
+<th>Username</th>
+<th>Role</th>
+<th>Org</th>
+<th>What to try</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>alice</code></td>
+<td>super_admin</td>
+<td>—</td>
+<td>All orgs, ceilings, invites</td>
+</tr>
+<tr>
+<td><code>pat</code></td>
+<td>org_admin</td>
+<td>Acme</td>
+<td>Org admin; shell / pair / generic <strong>on</strong></td>
+</tr>
+<tr>
+<td><code>kim</code></td>
+<td>user</td>
+<td>Acme</td>
+<td>Member; 4 dens / 8 cpu</td>
+</tr>
+<tr>
+<td><code>lee</code></td>
+<td>user</td>
+<td>Acme</td>
+<td>Member; <strong>1 den</strong> quota (hits the ceiling)</td>
+</tr>
+<tr>
+<td><code>riley</code></td>
+<td>org_admin</td>
+<td>Bandit Lab</td>
+<td>Cannot see Acme; launch flags <strong>off</strong></td>
+</tr>
+<tr>
+<td><code>sam</code></td>
+<td>user</td>
+<td>Bandit Lab</td>
+<td>Member; inherits org ceilings</td>
+</tr>
+</tbody>
+</table>
+<p>Acme is sized like a lab org (10 dens, 16 CPU, 32g, 200g) with launch flags
+on. Bandit Lab is tighter (3 dens, 4 CPU) with flags off so you can see a
+spawn refused. Re-run the command to reset passwords and quotas; it will not
+create duplicate users.</p>
+<p>This is <strong>not</strong> <code>herder den create --demo</code>. That flag clones raccoon-todo
+into <strong>one den</strong>. <code>demo-seed</code> only fills the Herder login/org tables.</p>
 <h2 id="resources-users-metadata">Resources, users, metadata</h2>
 <table>
 <thead>
@@ -70,7 +189,7 @@ URL is unset.</p>
 <tbody>
 <tr>
 <td><code>--cpus</code> <code>--memory</code> <code>--pids-limit</code> <code>--workspace-size</code></td>
-<td>Per-den caps</td>
+<td>Per-den caps. Disk on Docker is quota accounting (named volumes); kube uses PVCs.</td>
 </tr>
 <tr>
 <td><code>--user UID[:GID][:NAME]</code></td>
@@ -82,23 +201,18 @@ URL is unset.</p>
 </tr>
 <tr>
 <td><code>--packages</code></td>
-<td>Apt at init via <code>den-pkg</code>; that den is not read-only</td>
-</tr>
-<tr>
-<td><code>--mcp-file</code></td>
-<td>Stamps ACP <code>mcpServers</code></td>
-</tr>
-<tr>
-<td>metadata.json</td>
-<td>Cloud-init analog at <code>/run/herder/metadata.json</code></td>
+<td>OS packages at init via <code>den-pkg</code>; that den is not read-only</td>
 </tr>
 </tbody>
 </table>
+<p>Dashboard <strong>OS packages</strong> on spawn and floorplans is the same knob (<code>gh</code>, <code>ripgrep</code>, <code>ffmpeg</code>, <code>jq</code>, …). It is not extra env: Herder stamps <code>RACCOON_OS_PACKAGES</code> plus the apt-compatible legacy <code>RACCOON_APT_PACKAGES</code>, and the den runs <code>den-pkg</code> as root before clone bootstrap. Package names are tokens only (<code>[a-z0-9.+-]+</code>); the Ubuntu 24.04 archive must ship them (GitHub CLI is <code>gh</code> when that package is mirrored). <code>--package-proxy URL</code> stamps a validated http(s) proxy/cache for apt today and dnf/apk future bases; by default Herder uses <code>HERDER_PACKAGE_PROXY</code> / <code>RACCOON_PACKAGE_PROXY</code> or a host apt proxy from <code>/etc/apt/apt.conf.d</code> when packages are requested.
+| <code>--mcp-file</code> | Stamps ACP <code>mcpServers</code> |
+| metadata.json | Cloud-init analog at <code>/run/herder/metadata.json</code> |</p>
 <p>The den user cannot read <code>/opt/raccoon-herder</code> on Herder-spawned dens.
 <code>--host-volume</code> / <code>--insecure-bind</code> are operator-only.</p>
 <h2 id="git-probe-before-rm">Git probe before rm</h2>
-<p><code>den stop</code> / <code>den rm</code> <strong>GET</strong> <code>{origin}/api/workspace/git</code>. The Herder never
-<code>docker exec git</code>.</p>
+<p><code>den stop</code> / <code>den rm</code> / dashboard <strong>Rebuild</strong> <strong>GET</strong> <code>{origin}/api/workspace/git</code>.
+The Herder never <code>docker exec git</code>.</p>
 <table>
 <thead>
 <tr>
