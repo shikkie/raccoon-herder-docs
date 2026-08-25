@@ -97,10 +97,30 @@ form allow it.</p>
 <p>Force-skip of the git probe (stop / terminate / rebuild) is an admin action.
 On the phone UI it lives <strong>inside</strong> those modals, not on the dens list.</p>
 <h2 id="floorplans">Floorplans</h2>
-<p>A floorplan is a spawn recipe: agent, git, first prompt, CPUs / memory / disk,
-<code>/shell</code>, skip-bootstrap, and <strong>env vars</strong> (helpers plus free-form keys).
-Secret values stay in Mongo; GET never returns them. <strong>Edit</strong> a saved plan on
-the Floorplans page; leave a secret field blank to keep the stored token.</p>
+<p>A floorplan is a spawn recipe: agent, git, first prompt, CPUs / memory / disk
+/ tmpfs size, <code>/rh-shell</code> / <code>/rh-sh</code>, skip-bootstrap, and <strong>env vars</strong> (helpers plus
+free-form keys). Secret values stay in Mongo; GET never returns them.
+<strong>Edit</strong> a saved plan on the Floorplans page; leave a secret field blank to
+keep the stored token.</p>
+<p>Tmpfs size sets the memory-backed <code>/tmp</code> and <code>$HOME</code> a den boots with
+(default <code>256m</code>, matching <code>herder den create --tmpfs-size</code>). Raise it per
+floorplan for dens whose bootstrap downloads large packages (ML wheels,
+model weights, …) — pip and friends stage large downloads under <code>TMPDIR</code>
+before moving them into place, and a full tmpfs surfaces as a truncated
+"connection interrupted" download rather than an obvious disk-space error.
+Leave it unset to use the default.</p>
+<p>Tmpfs backend picks what that scratch space is actually made of: <code>ram</code>
+(default, a real <code>tmpfs</code> — fast, but it eats into the host's memory and
+disappears the moment the den is removed) or <code>disk</code> (a bind-mounted
+directory under the Herder state dir, backed by the host's real disk).
+Use <code>disk</code> when a bootstrap's downloads are too large to comfortably fit
+in RAM even after raising tmpfs size, and the host has fast local storage
+(NVMe) to spare — <code>herder den create --tmpfs-backend disk</code> on the CLI, or
+the matching floorplan/spawn field. Disk-backed scratch dirs are cleaned
+up automatically when the den is removed, same as tmpfs. <strong>Not supported
+in Swarm mode</strong>: a Swarm service can be rescheduled to any node, and a
+bind mount tied to one node's disk would silently break or lose data on
+reschedule, so Swarm rejects <code>tmpfs_backend: disk</code> outright.</p>
 <p><strong>Save as floorplan</strong> on Spawn writes the same fields from the modal (env
 included). Empty secret boxes are omitted so they do not wipe tokens.</p>
 <h2 id="den-rebuild">Den rebuild</h2>
