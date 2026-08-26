@@ -104,6 +104,16 @@ It defaults to whatever the den's floorplan sets.
 Open <code>/rh-theme</code> for a preview page that renders every themed surface — chat
 bubbles with all markdown (tables, code fences, inline code, links, quotes),
 buttons, inputs and the palette swatches — with a dark/light toggle.</p>
+<p>When shell access is enabled, running sessions also show <strong>Term</strong>. It opens a
+session-scoped interactive shell PTY in the PWA (not a new tab). Closing the
+panel keeps the shell alive briefly for reconnect; <strong>Terminate</strong> stops it.
+<code>/rh-shell</code> remains the bounded, captured-output command path.</p>
+<p>When the den has proxy access enabled, the session actions bar lists discovered
+HTTP(S) services listening on IPv4 inside the den. Select a port to open it
+through the authenticated <code>/_rh/proxy/{port}/</code> relay, or enter a port
+manually when discovery misses a service. No additional host port is exposed.
+Links opened from the PWA use the existing login cookie, so the proxy URL does
+not include a bearer token.</p>
 <h2 id="approvals-and-tools">Approvals and tools</h2>
 <p>Tool cards show running work. When the agent asks, a sticky <strong>Allow / Deny</strong>
 bar appears. Always-allow / always-deny persist on that raccoon session;

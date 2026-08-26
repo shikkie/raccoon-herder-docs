@@ -260,6 +260,21 @@ Bind mounts are never wiped.</p>
 <h2 id="egress">Egress</h2>
 <p><code>--egress-mode open|lock|lock-audit|lock-inspect</code> plus <code>--dns</code>. Lock is
 fail-closed. Dens get isolated networks. See <a href="security.html">Security</a>.</p>
+<h3 id="questions-from-agents">Questions from agents</h3>
+<p>Herder runs agents through ACP over stdio, not through a vendor terminal UI.
+Questions should arrive as ACP form elicitation and appear as an <code>elicit</code> card
+in chat. If an agent emits a TUI-only helper such as <code>ask_user_question</code>, no
+TUI can answer it; Herder displays a warning and the user should reply in the
+chat composer. Pairing and TUI shortcuts are not part of the Herder interface.
+Floorplans may also inherit from another floorplan. Choose a <strong>Base floorplan</strong>
+when saving a recipe to reuse its authentication env, secret files, packages,
+and other non-empty settings. The derived plan's non-empty values override the
+base; packages and secret files are combined. The base must be visible in the
+same organization, and inheritance cycles are rejected.</p>
+<p>Use <strong>Dependency tree</strong> on the Floorplans page to view every visible plan and
+its descendants. If access to a base plan is later lost (for example after
+leaving an organization), the derived plan is marked <strong>Broken base</strong> and
+cannot be spawned until it is edited to choose an accessible base or <strong>None</strong>.</p>
     </main>
     <footer class="site-footer">
       Self-hosted chat control plane. User book built with
