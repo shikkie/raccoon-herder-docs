@@ -43,6 +43,10 @@
 <p>The installed app is per origin. Fine for a sticky den; skip for a
 20-minute job. Open the den with a one-time <code>?token=</code> (Herder prints that
 URL). After login the token is a cookie, not a query string.</p>
+<p>Rebuild (or spawning again under the same den name) keeps that origin, so
+an old tab's cookie is stale. Close those tabs before Open. If the page
+says <strong>rate limited</strong>, wait about a minute and Open once — it is the login
+burst from the leftover tab, not a broken den.</p>
 <p>Dev HMR: <code>cd web/app &amp;&amp; npm run dev</code> (proxies to <code>:42069</code>). Production
 static is what <code>web/server.py</code> serves.</p>
 <h2 id="sessions">Sessions</h2>

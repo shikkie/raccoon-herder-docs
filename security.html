@@ -49,7 +49,9 @@ not a kiosk. This page is the current product — not a phase checklist.</p>
 <li>A <strong>den</strong> fails closed if it is missing.</li>
 <li>Off-loopback: <code>Authorization: Bearer</code>, or <code>GET /?token=</code> once → HttpOnly
   <code>RACCOON_SESSION</code> cookie. Scripts keep using Bearer.</li>
-<li>Bad-token bursts get <strong>429</strong>.</li>
+<li>Bad-token bursts get <strong>429</strong>. After a den rebuild or a reused den name,
+  close leftover tabs on that hostname first; their dead cookies count as
+  misses and can rate-limit the next Open URL for about a minute.</li>
 <li>Pairing (<code>/pair</code>) is for LAN from loopback. Off in dens unless
   <code>--allow-pair</code>. Do not put <code>/pair</code> on the public internet.</li>
 </ul>
@@ -57,8 +59,12 @@ not a kiosk. This page is the current product — not a phase checklist.</p>
 <p>Loopback + discovered RFC1918 same-subnet + <code>acl.allow_cidrs</code>.
 <code>acl.trusted_proxies</code> is the only source of <code>X-Forwarded-For</code>. Spoofed
 headers from anyone else are ignored. Never trust <code>0.0.0.0/0</code>.</p>
-<p>Published Docker ports look like the bridge; compose sets
-<code>RACCOON_ALLOW_CIDRS=172.16.0.0/12</code> so host probes are not 403.</p>
+<p>Published Docker ports look like the bridge gateway (often <code>192.168.x</code>,
+not only <code>172.16/12</code>). Herder dens stamp <code>10/8,172.16/12,192.168/16</code>.
+<code>/api/health</code> and <code>/api/ready</code> are unauthenticated but still go through the
+inbound ACL: loopback and allowed hops (<code>acl.allow_cidrs</code>, discovered LAN)
+may probe; everyone else gets 403. Herder <code>wait_ready</code> and kube probes
+come from those allowed hops.</p>
 <h2 id="what-never-goes-in-a-den">What never goes in a den</h2>
 <ul>
 <li><code>docker.sock</code> / engine sockets / kubeconfig</li>
@@ -67,41 +73,174 @@ headers from anyone else are ignored. Never trust <code>0.0.0.0/0</code>.</p>
 <li>A user table or biller directory (that stays in the orchestrator)</li>
 </ul>
 <p><code>--host-volume</code> and <code>--insecure-bind</code> are operator-only.</p>
-<h2 id="egress-open-vs-lock-vs-lock-audit-vs-lock-inspect">Egress: open vs lock vs lock-audit vs lock-inspect</h2>
+<h2 id="secret-files-herder-never-sees-the-contents">Secret files (Herder never sees the contents)</h2>
+<p>A <code>.env</code>, Grok login blob, or similar file is encrypted <strong>in the browser</strong>
+before it is stored. Herder keeps only an AES-256-GCM envelope (salt, nonce,
+ciphertext). There is no password hash to compare: a mistyped passphrase
+fails because GCM’s authentication tag does not verify under the wrong key.
+That check runs in the tab (or later inside the den), not on the control
+plane.</p>
+<pre class="mermaid">sequenceDiagram
+  actor You
+  participant Browser
+  participant Herder
+  participant Den
+
+  You-&gt;&gt;Browser: file plus passphrase
+  Browser-&gt;&gt;Browser: PBKDF2 then AES-256-GCM
+  Browser-&gt;&gt;Herder: envelope only
+  Note over Herder: stores ciphertext never plaintext
+  You-&gt;&gt;Browser: passphrase to inject or edit
+  Browser-&gt;&gt;Herder: GET envelope
+  Browser-&gt;&gt;Browser: decrypt locally
+  Note over Browser: wrong passphrase fails the GCM tag
+  alt inject into a den
+    Browser-&gt;&gt;Browser: re-encrypt with a random wrap
+    Browser-&gt;&gt;Herder: one-time ticket plus wrap envelope
+    Herder-&gt;&gt;Den: ciphertext ticket
+    Note over Den: wrap passphrase in boot env not with the ticket
+    Den-&gt;&gt;Den: decrypt write dest forget wrap
+  end</pre>
+
+<p>Spawn and rebuild mint a <strong>one-time ticket</strong> plus a <strong>separate wrap
+passphrase</strong>. The ticket is only a bearer for <code>GET /secret-once</code>. The wrap
+decrypts inside the den installer and is not stored next to the ticket.
+Den <code>$HOME</code> is tmpfs, so a rebuild without a new inject leaves the dest
+empty — that is the point.</p>
+<p>Edit is the same unwrap/wrap in the browser: decrypt, change the text,
+re-encrypt, <code>PUT</code> a new envelope. Herder still never sees <code>.env</code> bytes.</p>
+<h2 id="egress-containment-you-can-climb">Egress: containment you can climb</h2>
+<p>Egress is the one thing an agent <em>can</em> do that touches the outside world, so
+it is worth getting graded. Raccoon Herder makes the tradeoff explicit as a
+paranoia ladder — every rung is operator-set, never a den/tenant toggle, and
+every <code>lock*</code> rung is <strong>fail-closed</strong>: traffic that is not explicitly allowed
+is dropped. The den network is per-den and isolated on every runtime.</p>
 <pre class="mermaid">flowchart LR
   open[open] --&gt; lock[lock]
   lock --&gt; audit[lock-audit]
-  audit --&gt; inspect[lock-inspect]</pre>
+  audit --&gt; inspect[lock-inspect]
+  inspect --&gt; capture[lock-capture]</pre>
 
 <table>
 <thead>
 <tr>
-<th>Mode</th>
+<th>Rung</th>
 <th>What it does</th>
+<th>What it buys you</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td><strong>open</strong></td>
 <td>Normal container DNS/egress (still no engine socket).</td>
+<td>Nothing extra. For throwaway dens on a box you control.</td>
 </tr>
 <tr>
 <td><strong>lock</strong></td>
 <td>Fail-closed allowlist + per-den DNS. IPv6 metadata blocked.</td>
+<td>The den can only reach destinations you allow. Default posture.</td>
 </tr>
 <tr>
 <td><strong>lock-audit</strong></td>
-<td>Forced proxy; <strong>domain</strong> logs. Recommended default when you want to see where the den talks.</td>
+<td>Forced proxy; <strong>domain-level</strong> logs.</td>
+<td>Proof of <em>where</em> the den talked, without breaking TLS. Recommended when you want to see egress.</td>
 </tr>
 <tr>
 <td><strong>lock-inspect</strong></td>
-<td>Same as audit <strong>plus</strong> TLS termination with a Herder CA. DLP hooks. <strong>Not a SaaS default.</strong> Breaks certificate pinning and some mTLS.</td>
+<td>Same proxy <strong>plus</strong> TLS termination with a Herder CA. DLP hooks; method/path and <strong>redacted</strong> body summaries.</td>
+<td>Visibility <em>into</em> the connection for compliance. <strong>Not a SaaS default.</strong> Breaks certificate pinning and some mTLS clients.</td>
+</tr>
+<tr>
+<td><strong>lock-capture</strong></td>
+<td>lock-inspect <strong>plus</strong> a bounded, redacted capture sink: one JSON envelope per exchange, with rotation and retention.</td>
+<td>Post-incident forensics: review what actually left the den. Raw request/response bodies only with an explicit operator opt-in.</td>
 </tr>
 </tbody>
 </table>
-<p><code>lock-inspect</code> is on-prem / compliance only. The den trusts
-<code>RACCOON_INSPECT_CA</code>; the proxy logs method/path and <strong>redacted</strong> body
-summaries. Hostname-only logs (<code>lock-audit</code>) are the usual choice.</p>
+<p>The den trusts <code>RACCOON_INSPECT_CA</code> only when an inspect/capture rung is
+stamped; lock and lock-audit never mount a custom CA. Hostname-only logs
+(<code>lock-audit</code>) are the usual choice when you just want to see destinations.
+Each CONNECT row includes the <strong>port</strong> (usually 443). A den can skip stolen
+DNS with <code>curl --resolve host:443:ip</code>; lock still drops that TCP, and
+lock-audit still logs the hostname and port.</p>
+<p>Two honest caveats, on purpose:</p>
+<ul>
+<li><strong>Pinning.</strong> Ladder rungs 4 and 5 break clients that pin public CAs or use
+  mTLS client certificates. There is an operator-only escape valve
+  (<code>HERDER_PROXY_PASS_THROUGH</code>) that falls back to a plain tunnel when MITM
+  setup fails — but the default stays fail-closed, because a capture that
+  silently stops capturing is worse than an error.</li>
+<li><strong>Read-after-exfiltration.</strong> Every rung still assumes the agent has the
+  workspace. Egress control narrows <em>reach</em>; it is not a full data-DLP
+  product — though <code>lock-inspect</code> sample rules can alert or block on
+  secret-shaped bodies, and captures are redacted by default (full plaintext
+  retention is the customer's compliance call).</li>
+</ul>
+<p>Cwd jail, per-den caps, and the deny ACL live beside this in the dashboard:
+per-den <code>Deny</code> / <code>Block</code> / <code>Redirect</code> rules and reusable rule sets on the
+Egress page.</p>
+<h3 id="dns-steal-host-8853">DNS steal (host <code>:8853</code>)</h3>
+<p>On host Docker, Podman, and Swarm, every <code>lock*</code> den has its UDP and TCP
+<code>:53</code> <strong>stolen</strong>: per-bridge <code>PREROUTING</code> NAT <code>REDIRECT</code> to
+<code>herder serve</code> on <strong><code>:8853</code></strong>. The laptop's resolver and systemd-resolved
+stay on <code>:53</code>. <code>dig @8.8.8.8</code> from a locked den still lands on Herder.</p>
+<table>
+<thead>
+<tr>
+<th>Den</th>
+<th>Stolen?</th>
+<th>Logged?</th>
+<th>Unknown qname</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>lock*</code></td>
+<td>yes</td>
+<td>allow <strong>and</strong> deny</td>
+<td><strong>NXDOMAIN</strong> (rcode 3; no upstream)</td>
+</tr>
+<tr>
+<td><code>open</code> (default)</td>
+<td>no</td>
+<td>no</td>
+<td>real resolver (<code>8.8.8.8</code> / Docker DNS)</td>
+</tr>
+<tr>
+<td><code>open</code> + den/floorplan <code>log_dns</code> or org <code>log_open_dns</code></td>
+<td>yes</td>
+<td>yes</td>
+<td><strong>forward</strong> (not fail-closed)</td>
+</tr>
+</tbody>
+</table>
+<p>Allowed <strong>A/AAAA</strong> names go to <code>HERDER_DNS_UPSTREAM</code> (else non-loopback
+system DNS, else <code>1.1.1.1</code>). Unparsable queries are never forwarded.
+In <code>lock</code>, and for any blocked name, TXT/ANY/HTTPS/MX and other non-A/AAAA
+types are NXDOMAIN and never look upstream. <strong>PTR</strong> reverse lookups still
+forward. Mongo rows include <code>stolen_dest</code> when the kernel exposes the
+original destination (so you can see the den asked <code>8.8.8.8</code>).</p>
+<p><strong>Where to read it.</strong> Anyone who can manage a den: den detail <strong>DNS</strong> and
+<strong>Proxy</strong> accordions (<code>GET /api/v1/dens/{id}/dns-events</code>,
+<code>…/proxy-events</code>). Org admins and super-admins also get <strong>Network</strong>
+(<code>GET /api/v1/dns-events</code> hunt; owners get <strong>403</strong>). Proxy CONNECT is a
+separate collection — lock-audit+ only; lock / open say “use DNS.”</p>
+<p><strong>iptables still does not log dropped TCP.</strong> Fail-closed <code>REJECT</code> on
+non-DNS egress is silent. You see lookups (and stolen dest) plus
+lock-audit CONNECT lines — not a packet log of every blocked <code>:443</code>.</p>
+<h2 id="misbehaving-dens">Misbehaving dens</h2>
+<p>A den that floods its control socket, DNS, or the audit proxy is <strong>held</strong>:
+force-stopped, control socket removed, <code>hold</code> persisted on the record. The
+owner gets <strong>409</strong> on start/stop/restart/rebuild/transfer/terminate so they
+cannot wipe the den before an operator looks. Org admins and super-admins
+can <strong>Hold</strong> / <strong>Release hold</strong> from the dens list.</p>
+<p>Thresholds live in <strong>Ops</strong> (host defaults, org overlay). Env vars
+(<code>HERDER_CONTROL_RPS</code>, <code>HERDER_DNS_ABUSE_SUPPRESS</code>,
+<code>HERDER_PROXY_ABUSE_CONNS</code>, <code>HERDER_ABUSE_HOLD=1</code>) seed the host document
+until an admin saves. The sidecar writes a flag under
+<code>$HERDER_STATE_DIR/abuse</code>; <code>herder serve</code> drains it. The socket handler also
+bounds concurrency, body size, and paths so a malicious den cannot
+thread-bomb the Herder process.</p>
 <h2 id="cwd-jail">Cwd jail</h2>
 <p>In a container den, session create, workspace IO, and cwd typeahead stay
 under <code>RACCOON_CWD</code>. Agents can still exfiltrate <strong>workspace</strong> secrets;

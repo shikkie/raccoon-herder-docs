@@ -96,6 +96,22 @@ generic) are per org; a den only gets them if both the org and the spawn
 form allow it.</p>
 <p>Force-skip of the git probe (stop / terminate / rebuild) is an admin action.
 On the phone UI it lives <strong>inside</strong> those modals, not on the dens list.</p>
+<h2 id="operations-quarantine">Operations (quarantine)</h2>
+<p><strong>Ops</strong> in the dashboard is host-wide for super admins and org-wide for org
+admins. It sets the thresholds that <strong>quarantine</strong> a den (force-stop + hold
+so the owner cannot terminate it):</p>
+<ul>
+<li>control-socket requests per second</li>
+<li>self-restarts / 10 minutes</li>
+<li>egress drops / 10 minutes</li>
+<li>DNS burst (suppressed queries)</li>
+<li>audit-proxy accepts per second</li>
+</ul>
+<p>Crossing <strong>2×</strong> a threshold holds the den. Org values override host; blank
+org fields inherit. Env vars (<code>HERDER_CONTROL_RPS</code>, …) seed the host
+defaults until someone saves Ops. The control socket picks up changes
+immediately; a DNS/proxy sidecar keeps the env it was started with until
+the den is rebuilt.</p>
 <h2 id="floorplans">Floorplans</h2>
 <p>A floorplan is a spawn recipe: agent, git, first prompt, CPUs / memory / disk
 / tmpfs size, <code>/rh-shell</code> / <code>/rh-sh</code>, skip-bootstrap, and <strong>env vars</strong> (helpers plus
@@ -123,17 +139,31 @@ bind mount tied to one node's disk would silently break or lose data on
 reschedule, so Swarm rejects <code>tmpfs_backend: disk</code> outright.</p>
 <p><strong>Save as floorplan</strong> on Spawn writes the same fields from the modal (env
 included). Empty secret boxes are omitted so they do not wipe tokens.</p>
+<h2 id="secret-files">Secret files</h2>
+<p>The <strong>Secrets</strong> page stores <code>.env</code> (and similar) as <strong>client-encrypted</strong>
+envelopes. You type a passphrase in the dashboard; Web Crypto seals the file
+in the browser; Herder stores ciphertext only. Inject at spawn/rebuild, or
+edit in place, still decrypts in the tab — a wrong passphrase fails the
+AES-GCM tag locally. See <a href="security.html#secret-files-herder-never-sees-the-contents">Security</a>
+for the sequence. Den home is tmpfs: inject again on rebuild or the dest is
+gone.</p>
 <h2 id="den-rebuild">Den rebuild</h2>
 <p>Each spawn stores a recipe (env, agent, LLM, flags). <strong>Rebuild</strong> on a den:
 same git dirty check as terminate (or Force + reason in the modal), stop the
 container <strong>keeping volumes</strong>, then spawn again with the <strong>same name, id, and
 env</strong> on the current flavor image. Use this after a base-image rebuild.</p>
+<p>The public hostname (<code>{name}.den.{domain}</code>) stays the same. A leftover PWA
+tab on that name keeps polling with a dead session cookie, fills the den's
+login rate limit, and the next <strong>Open</strong> can show <strong>rate limited</strong> even with a
+fresh <code>?token=</code>. Close those old tabs, wait about a minute, then Open once.
+The same thing happens if you spawn a new den that reuses a name you already
+had open.</p>
 <p>Dens created before recipes existed cannot rebuild — terminate and spawn once
 from a floorplan.</p>
 <h2 id="den-images-super_admin">Den images (<code>super_admin</code>)</h2>
 <p>The <strong>Images</strong> nav lists flavored tags (<code>raccoon-herder:local-grok</code> / <code>-claude</code>
-/ <code>-copilot</code>), whether they are present, last built time, and size. Rebuild
-runs <code>scripts/build-den-images.sh</code> on the Herder host. Then Rebuild each den
+/ <code>-copilot</code> / <code>-opencode</code> / …), whether they are present, last built time, and
+size. Rebuild runs <code>scripts/build-den-images.sh</code> on the Herder host. Then Rebuild each den
 to pick up the new tag.</p>
 <h2 id="demo-roster">Demo roster</h2>
 <p>Local testing only — not production. Idempotent. Shared password
@@ -258,8 +288,117 @@ The Herder never <code>docker exec git</code>.</p>
 <p>Volumes: <code>stop</code> and <code>rm</code> <strong>keep</strong> named volumes; <code>rm --wipe</code> deletes them.
 Bind mounts are never wiped.</p>
 <h2 id="egress">Egress</h2>
-<p><code>--egress-mode open|lock|lock-audit|lock-inspect</code> plus <code>--dns</code>. Lock is
-fail-closed. Dens get isolated networks. See <a href="security.html">Security</a>.</p>
+<p>Dens get isolated networks, and <code>lock*</code> modes are <strong>fail-closed</strong>: traffic the
+policy does not allow is dropped, not logged-and-forwarded. Most of the
+policy is per-den rules and rule sets you manage from the dashboard; the
+<strong>mode</strong> and resolver are operator knobs.</p>
+<h3 id="egress-rules-on-a-den">Egress rules on a den</h3>
+<p>The <strong>Egress rules</strong> section of a den's edit modal is the per-den outbound
+ACL — rows of <code>Allow</code> / <code>Deny</code> (network filter on <code>tcp</code> / <code>udp</code> / <code>any</code> with
+ports) plus <code>Block (DNS)</code> / <code>Redirect (DNS)</code> host rules:</p>
+<table>
+<thead>
+<tr>
+<th>Action</th>
+<th>Effect</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Allow</strong></td>
+<td>Add a destination to the den's allowlist — hostname or CIDR, optional ports</td>
+</tr>
+<tr>
+<td><strong>Deny</strong></td>
+<td>Drop matching egress. <strong>Host / Swarm only</strong> — Kubernetes NetworkPolicy cannot express an explicit deny, so on k8s you get default-deny + an allowlist instead</td>
+</tr>
+<tr>
+<td><strong>Block (DNS)</strong></td>
+<td>The den's own DNS answers <code>NXDOMAIN</code> for that name (or a sinkhole A address when one is set)</td>
+</tr>
+<tr>
+<td><strong>Redirect (DNS)</strong></td>
+<td>DNS answers <code>NAME</code> → <code>IP</code> (e.g. <code>pinned.test:10.0.0.7</code>)</td>
+</tr>
+</tbody>
+</table>
+<p>Rules save to <code>/api/v1/dens/{id}/egress</code>. The effective ACL for a den is the
+union in order: system rule sets, org rule sets, then the den's own rules.
+Host iptables is re-applied on save / start for Docker, Podman, and Swarm.</p>
+<p>DNS/proxy sidecar flags still need a <strong>rebuild</strong> (the sidecar is not SIGHUP'd
+yet). Dashboard dens inherit <code>HERDER_EGRESS_MODE</code> (default <code>lock</code>); only a
+super admin can pick a mode at spawn. Floorplans store <code>egress_mode</code> and
+pass it on spawn (including child floorplans that leave the field blank).
+Saving a den as a floorplan copies the den's recipe — git token, extra env,
+and egress mode included — via <code>from_den_id</code>.</p>
+<h3 id="host-dns-listener-herder-serve-8853">Host DNS listener (<code>herder serve</code> <code>:8853</code>)</h3>
+<p><code>herder serve</code> binds <strong>UDP and TCP 8853</strong> (<code>HERDER_DNS_LISTEN=0</code> skips it).
+It never binds host <code>:53</code>. For each lock-family den (and for <code>open</code> with
+<code>log_dns</code> / org <code>log_open_dns</code>), Herder installs NAT only on that den's
+bridge: <code>:53</code> → <code>:8853</code>. Attribution is in-interface + source IP.</p>
+<p>On <strong>host Docker and Podman</strong> the lock-audit sidecar is <strong>HTTP only</strong>. It
+does not bind DNS (<code>--http</code> on the proxy port; no <code>--dns 0.0.0.0:53</code>).
+CONNECT lines drain from a bind-mount into Mongo (<code>den_proxy_events</code>).
+Kubernetes proxy pods still run sidecar DNS on <code>:53</code> (no host REDIRECT).</p>
+<p>Den detail <strong>DNS</strong> / <strong>Proxy</strong> accordions are the per-den log. <strong>Network</strong>
+is the org hunt (org admin and super-admin). See <a href="security.html">Security</a>.</p>
+<h3 id="den-control-socket-drop-restart">Den control socket (drop + restart)</h3>
+<p>The den cannot reach the Herder dashboard API (loopback). Herder bind-mounts a
+<strong>Unix socket</strong> at <code>/run/herder/control/control.sock</code>. One JSON object per
+connection (read until EOF; pretty-print is fine), no auth (the socket is
+only in this den). Full shapes live in the repo as
+<code>docs-no-gh-pages/DEN-CONTROL.md</code>.</p>
+<table>
+<thead>
+<tr>
+<th>Command</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>{"op":"egress"}</code></td>
+<td>Imposed mode, allow hosts/CIDRs, DNS, drops, <code>can_restart</code></td>
+</tr>
+<tr>
+<td><code>{"op":"drop","targets":["github.com"]}</code> or <code>"all":true</code></td>
+<td><strong>Shrink only</strong></td>
+</tr>
+<tr>
+<td><code>{"op":"restart"}</code></td>
+<td>Ask Herder to force-restart this den</td>
+</tr>
+</tbody>
+</table>
+<p>CLI (same calls): <code>herder-den egress</code>, <code>herder-den drop github.com</code>,
+<code>herder-den drop --all</code>, <code>herder-den restart</code>.</p>
+<p><strong>Restart</strong> is off unless the org feature <strong>allow_restart</strong> and the den's spawn
+checkbox are both on (same grant as <code>/rh-shell</code>). Then <code>can_restart</code> is true.
+<code>{"op":"restart"}</code> is a <strong>forced</strong> restart (dirty git does not block). The
+connection often dies before a reply is read because the den is stopping.
+Host, Swarm, and Kubernetes all honor restart (stop then start). A drop
+re-applies iptables on host/Swarm and the den <strong>NetworkPolicy</strong> on kube.
+The control socket is a bind-mount on host/Swarm and a same-node
+<code>hostPath</code> on kube (testable on single-node k3s).</p>
+<p>Drop applies live to new connections. Established sockets stay until restart.</p>
+<p>Flooding the socket, DNS, or the audit proxy <strong>holds</strong> the den: Herder
+force-stops it and the <strong>owner cannot terminate it</strong> until an org admin or
+super-admin releases the hold (dashboard <strong>Release hold</strong>, or
+<code>POST /api/v1/dens/{id}/release-hold</code>). That keeps evidence on disk while
+someone investigates.</p>
+<h3 id="rule-sets">Rule sets</h3>
+<p>The <strong>Egress</strong> page holds named, reusable rule sets: <code>system</code>-scoped (super
+admins only) or <code>org</code>-scoped, sharing the same rule editor as a den. <code>system</code>
+sets apply to every den, <code>org</code> sets to every den in that organization, and a
+den's own rules win on overlap. Copy a set into any den you manage.</p>
+<h3 id="modes-and-dns-are-operator-set">Modes and DNS are operator-set</h3>
+<p>The <strong>paranoia ladder</strong> (<code>open|lock|lock-vendors|lock-audit|lock-inspect|
+lock-capture</code>) is operator-set: <code>HERDER_EGRESS_MODE</code> / <code>--egress-mode</code>, or the
+super-admin spawn control. The resolver (<code>--dns</code>, <code>--dns-block</code>,
+<code>--dns-redirect</code>, <code>--dns-sinkhole-a/--dns-sinkhole-aaaa</code>, <code>--dns-upstream</code>)
+stays CLI / env. See <a href="security.html">Security</a> for what each ladder rung
+captures and enforces, and the orchestrator manual for the operator flags and
+machine contract.</p>
 <h3 id="questions-from-agents">Questions from agents</h3>
 <p>Herder runs agents through ACP over stdio, not through a vendor terminal UI.
 Questions should arrive as ACP form elicitation and appear as an <code>elicit</code> card
@@ -268,9 +407,42 @@ TUI can answer it; Herder displays a warning and the user should reply in the
 chat composer. Pairing and TUI shortcuts are not part of the Herder interface.
 Floorplans may also inherit from another floorplan. Choose a <strong>Base floorplan</strong>
 when saving a recipe to reuse its authentication env, secret files, packages,
-and other non-empty settings. The derived plan's non-empty values override the
-base; packages and secret files are combined. The base must be visible in the
-same organization, and inheritance cycles are rejected.</p>
+egress mode, and other non-empty settings. The derived plan's non-empty values
+override the base; packages and secret files are combined. Leave agent, git
+URL, tmpfs, and egress blank on the child to inherit. The base must be visible
+in the same organization, and inheritance cycles are rejected. <code>GET /floorplans</code>
+includes an <code>effective</code> object with the resolved recipe (secrets still
+redacted) so spawn prefills the inherited git URL and mode.</p>
+<p>Live egress/jail probes live in the companion repo
+<a href="https://github.com/shikkie/raccoon-escape"><code>shikkie/raccoon-escape</code></a>
+(not <code>scripts/check.sh</code>). Spawn it with extra env
+<code>RACCOON_ESCAPE_SUITE=all</code> (default) and <code>RACCOON_ESCAPE_AUTO=1</code> (default);
+<code>.raccoon/bootstrap.sh</code> runs the suite on every den boot.</p>
+<p>From the <strong>Herder host</strong>, <code>herder escape-run</code> (or <code>--dry-run</code>) spawns dens for
+<code>open</code>, <code>lock</code>, and <code>lock-audit</code> <strong>without</strong> cloning GitHub — a lock den cannot
+reach github.com, so Herder copies <code>escape.sh</code> / <code>escape/run.py</code> into
+<code>/workspace</code> from <code>HERDER_ESCAPE_SRC</code> or a sibling <code>raccoon-escape</code> checkout.
+<code>clone-drop</code> is the extra scenario: spawn <code>lock</code> <strong>with</strong> a git URL (github.com
+allowed), clone, then <code>drop github.com</code> and run the suite. <strong><code>supply-chain</code></strong>
+(in the default <code>--modes</code> list) is lock <strong>with</strong> github/gitlab/pypi/npm
+allowed, clone, <strong>no</strong> drop: dummy C&amp;C HTTPS must fail, <code>dig @8.8.8.8</code> /
+<code>dig @1.1.1.1</code> must be NXDOMAIN from Herder (not a public A), <code>github.com</code>
+still forwards, and the report's dns-events snapshot must show
+<code>stolen_dest</code> <code>8.8.8.8</code>/<code>1.1.1.1</code>. The same run's <strong>open</strong> den stays
+unlogged (<code>--log-dns</code> omitted) so a real <code>dig @8.8.8.8</code> still works.
+Each suite prints <code># control-egress</code> JSON from the control socket into the
+rollup. Then the runner floods the sock to trip quarantine. Needs
+<code>herder serve</code>. <code>--keep</code> leaves the dens; <code>--no-abuse</code> skips the flood.
+Private clone for <code>clone-drop</code> / <code>supply-chain</code>: <code>HERDER_ESCAPE_GIT_TOKEN</code> /
+<code>--git-token</code>, or the git token already on the raccoon-escape demo
+floorplan (<code>GH_TOKEN</code> / <code>RACCOON_GIT_TOKEN</code>; <code>--floorplan</code> /
+<code>HERDER_ESCAPE_FLOORPLAN</code> to pick one). After a live run it appends
+<code>escape-run-test.log</code> in the current directory (gitignored) with a UTC
+timestamp, each den's imposed egress rules, that den's suite/abuse
+result, and (for supply-chain) a dns-events snapshot (qname, decision,
+<code>stolen_dest</code>, rcode — no tokens). <code>--skip-report</code> skips the file.</p>
+<p>Ops <strong>quarantine mode</strong>: <strong>log</strong> (permissive) audits and throttles but does
+not hold; <strong>enforce</strong> holds the den at 2× so the owner cannot delete it.</p>
 <p>Use <strong>Dependency tree</strong> on the Floorplans page to view every visible plan and
 its descendants. If access to a base plan is later lost (for example after
 leaving an organization), the derived plan is marked <strong>Broken base</strong> and
